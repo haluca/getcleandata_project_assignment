@@ -3,7 +3,38 @@ This CodeBook describes the content of the dataset 'wantedoutput.txt'.
 The dataset 'wantedoutput.txt' is made using the R-script 'run-analyses.R', performed on the "Human Activity Recognition Using Smartphones Data Set" (http://archive.ics.uci.edu/ml/datasets/Human+Activity+Recognition+Using+Smartphones)
 See the README, features.txt and features_info.txt files in the original dataset to learn more about the measurements taken from the accelerometer and gyroscope and variables estimated from these signals.
 features are normalized and bounded within [-1,1]. The original set contains a set of testdata and a set of trainingdata. These sets are merged.  
-See the README file in this repo to learn more about the working of the R-script and how to use it. 
+See also the README file in this repo to learn more about the choosen solution.  
+
+## run_analysis.R, how it works
+* using dplyr
+  	library(dplyr)
+* testdata and trainingdata is read into datatabels and merged together: subject, x_test and y_test
+  	subjecttot<-rbind(read.table("./UCI HAR Dataset/test/subject_test.txt"),read.table("./UCI HAR Dataset/train/subject_train.txt"))
+  	xtemp<-rbind(read.table("./UCI HAR Dataset/test/x_test.txt"),read.table("./UCI HAR Dataset/train/x_train.txt"))
+  	ytot<-rbind(read.table("./UCI HAR Dataset/test/y_test.txt"),read.table("./UCI HAR Dataset/train/y_train.txt"))
+* the feature names are read into a datatable and assigned as colnames to the x-data.
+  	features<-read.table("./UCI HAR Dataset/features.txt")
+  	names(xtemp)<-features[,2]
+* only columns containing 'std()' and 'mean()' are selected (first delete columns with duplicate names) 
+  	xtemp<- xtemp[, !duplicated(colnames(xtemp))]
+  	xtot<-select(xtemp,contains("std()"))
+  	xtot<-cbind(xtot,select(xtemp,contains("mean()")))
+* subjects (in the subjectdata) are added to the x-data
+  	xtot<-cbind(subject=as.factor(subjecttot$V1),xtot)
+* activitynames are read into a datatable, the names of the activities (in the y-data) are added to the x-data
+  	activitylabels<-read.table("./UCI HAR Dataset/activity_labels.txt")
+  	xtemp<-activitylabels$V2[ytot$V1]
+  	xtot<-cbind(activity=xtemp,xtot)
+* tidy variable names: removing '_', "()", lowercase, abbreviations
+  	names(xtot)<-gsub("-","",names(xtot))
+  	names(xtot)<-gsub("\\()","",names(xtot))
+  	names(xtot)<-tolower(names(xtot))
+  	names(xtot)<-gsub("std","standarddeviation",names(xtot))
+* group, summarize averages by activity-subject
+  	xgroup<-xtot %>% group_by(activity,subject)
+  	xtidy<- xgroup %>% summarise_each(funs(mean)) 
+* write output
+  	write.table(xtidy,file="wantedoutput.txt", row.names=FALSE)
 
 ## Dataset
 The dataset 'wantedoutput.txt' contains the average for each activity and subject on the mean and standarddeviation measuruments from the original dataset.
